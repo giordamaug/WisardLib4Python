@@ -22,4 +22,4 @@ print(f"Predizione: {result}")
 response = model.response(X, threshold=0, percentage=True)
 print(f"Risultati: {response}")
 
-print(f"Mental Image: {model.getMI(1)})
+print(f"Mental Image: {model.getMI(1)}")
