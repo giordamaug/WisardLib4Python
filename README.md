@@ -29,3 +29,16 @@ This will create the library implemmenting the `wisard` python module to bind in
 ```
 $ python test.py
 ```
+
+
+## Notebooks
+
+To run the ``test_digits.py`` example notebook you need the following python packages:
+
++ sklearn
++ PIL
+
+To run the ``test_folower.py`` example notebook you need the following python packages:
+
++ matplotlib
++ opencv
