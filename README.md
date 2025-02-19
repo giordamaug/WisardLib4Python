@@ -28,4 +28,4 @@ This will create the library implemmenting the `wisard` python module to bind in
 
 ```
 $ python test.py
-
+```
