@@ -5,10 +5,12 @@
 
 + Python version 3.x
 + pybind11 is a required package for compiling and binding C++ modules into python.
++ numpy package
 + a C++ compiler with support for C++14 (which is no the standard for Clang, and GCC compiler)
 
 ```
 $ pip install pybind11
+$ pip install numpy
 ```
 
 ## Installation
@@ -24,6 +26,6 @@ This will create the library implemmenting the `wisard` python module to bind in
 
 ## Test
 
-````
+```
 $ python test.py
 
