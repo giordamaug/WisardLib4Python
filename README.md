@@ -38,7 +38,10 @@ To run the ``test_digits.py`` example notebook you need the following python pac
 + sklearn
 + PIL
 
+
 To run the ``test_folower.py`` example notebook you need the following python packages:
 
 + matplotlib
 + opencv
+
+Both notebook runs in Google Colab by launching them with the 
