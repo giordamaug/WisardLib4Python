@@ -41,7 +41,7 @@ To run the ``test_digits.py`` example notebook you need the following python pac
 
 To run the ``test_folower.py`` example notebook you need the following python packages:
 
-+ matplotlib
 + opencv
++ opencv_jupyter_ui
 
 Both notebook runs in Google Colab by launching them with the 
