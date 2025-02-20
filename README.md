@@ -1,7 +1,7 @@
 # WisardLib4Python
  WiSARD implementation in C++ for Python binding
 
-## Requirementa
+## Requirements
 
 + Python version 3.x
 + pybind11 is a required package for compiling and binding C++ modules into python.
@@ -44,4 +44,4 @@ To run the ``test_folower.py`` example notebook you need the following python pa
 + opencv
 + opencv_jupyter_ui
 
-Both notebook runs in Google Colab by launching them with the 
+Both notebooks run in Google Colab by launching them with the button on top of the file.
