@@ -82,15 +82,15 @@ public:
         float* ptr = static_cast<float*>(X_buf.ptr);
         auto off_buf = offsets.request();
         float* off_ptr = static_cast<float*>(off_buf.ptr);
-        auto rng_buf = offsets.request();
+        auto rng_buf = ranges.request();
         float* rng_ptr = static_cast<float*>(rng_buf.ptr);
         std::vector<int> intuple(_nrams, 0);
         
         for (int i = 0; i < _nrams; i++) {
             for (int j = 0; j < _nobits; j++) {
                 int x = _mapping[((i * _nobits) + j) % _retina_size];
-                int idx = x  / ntics;
-                int value = int((ptr[idx] - off_ptr[idx]) * ntics / rng_ptr[idx]);
+                int index = x / ntics;
+                int value = int((ptr[index] - off_ptr[index]) * ntics / rng_ptr[index]);
                 intuple[i] += (x % ntics < value) ? (1 << (_nobits - 1 - j)) : 0;
             }
         }
