@@ -217,6 +217,17 @@ public:
         }
     }
 
+    void train_tpl_val(const std::vector<int>& intuple, int y, float val) {
+        try {
+            _traincount.at(y)++;
+            for (int i = 0; i < _nrams; i++) {
+                _layers.at(y)[i][intuple[i]] += val;
+            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y or val args: ") + e.what());
+        }
+    }
+
     void train_tpl(const std::vector<int>& intuple, int y) {
         try {
             _traincount.at(y)++;
@@ -256,6 +267,20 @@ public:
         } catch (const std::exception &e) {
             throw py::value_error(std::string("Wrong y arg: ") + e.what());
         }
+    }
+
+    std::unordered_map<int, float> response_tpl_val(const std::vector<int>& intuple) {
+        std::unordered_map<int, float> results;
+
+        for (auto& layer : _layers) {
+            int y = layer.first;
+            float accumulate = 0.0;
+            for (int i = 0; i < _nrams; i++) {
+                accumulate += layer.second[i][intuple[i]] ;
+            }
+            results[y] = static_cast<float>(accumulate) / _nrams;
+        }
+        return results;
     }
 
     std::unordered_map<int, float> response_tpl(const std::vector<int>& intuple, float threshold = 0.0, bool percentage = true) {
@@ -346,7 +371,9 @@ PYBIND11_MODULE(wisard, m) {
         .def("reinit", &WiSARD::reinit, "Initialization function")
         .def("train", &WiSARD::train, "Training function", py::arg("X"), py::arg("y"))
         .def("train_tpl", &WiSARD::train_tpl, "Training function with tuple input", py::arg("X"), py::arg("y"))
+        .def("train_tpl_val", &WiSARD::train_tpl_val, "Training function with tuple input and value", py::arg("X"), py::arg("y"), py::arg("val"))
         .def("trainforget", &WiSARD::trainforget, "Training/forgetting function", py::arg("X"), py::arg("y"), py::arg("incr"), py::arg("decr"))
+        .def("response_tpl_val", &WiSARD::response_tpl_val, "Probability prediction function with tuple input", py::arg("intuple"))
         .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function with tuple input", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("response", &WiSARD::response, "Probability prediction function", py::arg("X"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("test", &WiSARD::test, "Classification function", py::arg("X"), py::arg("threshold")=0.0)

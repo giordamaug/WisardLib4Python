@@ -13,15 +13,13 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
     """WiSARD Regressor """
     
     #def __init__(self,  nobits, size, map=-1, classes=[0,1], dblvl=0):
-    def __init__(self,  n_bits=8, n_tics=256, random_state=0, mapping='random', code='t', scale=True, debug=False):
+    def __init__(self,  n_bits=8, n_tics=256, random_state=0, code='t', debug=False):
         if (not isinstance(n_bits, int) or n_bits<1 or n_bits>64):
             raise Exception('number of bits must be an integer between 1 and 64')
         if (not isinstance(n_tics, int) or n_tics<1):
             raise Exception('number of bits must be an integer greater than 1')
         if (not isinstance(debug, bool)):
             raise Exception('debug flag must be a boolean')
-        if (not isinstance(mapping, str)) or (not (mapping=='random' or mapping=='linear')):
-            raise Exception('mapping must either \"random\" or \"linear\"')
         if (not isinstance(code, str)) or (not (code=='g' or code=='t' or code=='c')):
             raise Exception('code must either \"t\" (termometer) or \"g\" (graycode) or \"c\" (cursor)')
         if (not isinstance(random_state, int)) or random_state<0:
@@ -29,44 +27,30 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         self._nobits = n_bits
         self._notics = n_tics
         self._code = code
-        self._scale = scale
         self._nrams = 0
-        self._maptype = mapping
         self._seed = random_state
-        if self._seed > -1: np.random.seed(self._seed) 
         self._debug = debug
         self._nloc = mypowers[self._nobits]
-        
-    def train(self, X, y):
-        ''' Learning '''
-        addresses = self._mk_tuple(X)
-        for i in range(self._nrams):
-            self._rams[i].updEntry(addresses[i], y)
-
-    def test(self, X):
-        ''' Testing '''
-        addresses = self._mk_tuple(X)
-        res = [sum(i) for i in zip(*[self._rams[i].getEntry(addresses[i]) for i in range(self._nrams)])]
-        return float(res[1])/float(res[0]) if res[0] != 0 else 0.0
-    
+        self._model = None
+            
     def fit(self, X, y):
         self._retina_size = self._notics * len(X[0])   # set retin size (# feature x # of tics)
         self._nrams = int(self._retina_size/self._nobits) if self._retina_size % self._nobits == 0 else int(self._retina_size/self._nobits + 1)
-        self._mapping = np.arange(self._retina_size, dtype=int)
-        self._rams = [Ram() for _ in range(self._nrams)] 
-        if self._maptype=="random":                 # random mapping
-            np.random.shuffle(self._mapping)
+        self._model = wisard.WiSARD(self._retina_size, self._nobits, [0], map=self._seed)
         self._ranges = X.max(axis=0)-X.min(axis=0)
         self._offsets = X.min(axis=0)
         self._ranges[self._ranges == 0] = 1
-        if self._debug: timing_init()
-        delta = 0                                   # inizialize error
+        if self._debug: 
+            timing_init()
+            delta = 0                                   # inizialize error
         for i,sample in enumerate(X):
             if self._debug:  print("Target %d"%y[i], end='')
-            self.train(sample, y[i])        
-            res = self.test(sample)
-            delta += abs(y[i] - res)
-            if self._debug: timing_update(i,y[i]==res,title='train ',size=len(X),error=delta/float(i+1))
+            intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
+            self._model.train_tpl_val(intuple, 0, y[i])        
+            if self._debug:             
+                res = self._model.response_tpl_val(intuple)[0]
+                delta += abs(y[i] - res)
+                timing_update(i,y[i]==res,title='train ',size=len(X),error=delta/float(i+1))
         if self._debug: print()
         return self
 
@@ -74,13 +58,15 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         if self._debug: timing_init()
         y_pred = np.array([])
         for i,sample in enumerate(X):
-            y_pred = np.append(y_pred,[self.test(sample)])
-            if self._debug: timing_update(i,True,title='test  ',clr=color.GREEN,size=len(X))
+            intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
+            y_pred = np.append(y_pred,[self._model.response_tpl_val(intuple)[0]])
+            if self._debug: 
+                timing_update(i,True,title='test  ',clr=color.GREEN,size=len(X))
         if self._debug: print()
         return y_pred
 
     def __repr__(self): 
-        return "WiSARDRegressor(n_tics: %d, n_bits:, %d, n_rams: %d, random_state: %d, n_locs: %r, mapping: %r)\n"%(self._notics, self._nobits, self._nrams, self._seed,self._nloc, self._maptype)
+        return "WiSARDRegressor(n_tics: %d, n_bits:, %d, n_rams: %d, random_state: %d, n_locs: %r)\n"%(self._notics, self._nobits, self._nrams, self._seed,self._nloc)
 
     def __str__(self):
         ''' Printing function'''
@@ -94,14 +80,13 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        return {"n_bits": self._nobits, "n_tics": self._notics, "mapping": self._maptype, "debug": self._debug, "code" : self._code, "random_state": self._seed
+        return {"n_bits": self._nobits, "n_tics": self._notics , "debug": self._debug, "code" : self._code, "random_state": self._seed
               }
-
-    def getDataType(self):
-        return self._datatype
-
     def getMapping(self):
-        return self._mapping
+        return self._model.getMapping()
+
+    def getCode(self):
+        return self._code
 
     def getNoBits(self):
         return self._nobits
@@ -110,13 +95,16 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         return self._notics
 
     def getNoRams(self):
-        return self._nrams
+        return self._model.getNRams()
+
+    def getClasses(self):
+        return self._model.getClasses()
 
 
 class WiSARDClassifier(BaseEstimator, ClassifierMixin):
     """WiSARD Regressor """
     
-    def __init__(self,  n_bits=8, n_tics=256, random_state=0, code='t', scale=True, 
+    def __init__(self,  n_bits=8, n_tics=256, random_state=0, code='t', 
             bleaching=True,default_bleaching=1,confidence_bleaching=0.01, debug=False):
         if (not isinstance(n_bits, int) or n_bits<1 or n_bits>64):
             raise Exception('number of bits must be an integer between 1 and 64')
@@ -137,7 +125,6 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         self._nobits = n_bits
         self._notics = n_tics
         self._code = code
-        self._scale = scale
         self._nrams = 0
         self._nclasses = 0
         self._seed = random_state
