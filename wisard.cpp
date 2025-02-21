@@ -77,6 +77,26 @@ public:
         return intuple;
     }
 
+    std::vector<int> _mk_tuple_float(py::array_t<float> X, int ntics, py::array_t<float> offsets, py::array_t<float> ranges) {
+        auto X_buf = X.request();
+        float* ptr = static_cast<float*>(X_buf.ptr);
+        auto off_buf = offsets.request();
+        float* off_ptr = static_cast<float*>(off_buf.ptr);
+        auto rng_buf = offsets.request();
+        float* rng_ptr = static_cast<float*>(rng_buf.ptr);
+        std::vector<int> intuple(_nrams, 0);
+        
+        for (int i = 0; i < _nrams; i++) {
+            for (int j = 0; j < _nobits; j++) {
+                int x = _mapping[((i * _nobits) + j) % _retina_size];
+                int idx = x  / ntics;
+                int value = int((ptr[idx] - off_ptr[idx]) * ntics / rng_ptr[idx]);
+                intuple[i] += (x % ntics < value) ? (1 << (_nobits - 1 - j)) : 0;
+            }
+        }
+        return intuple;
+    }
+
     std::vector<int> _mk_tuple_img(py::array_t<int, py::array::c_style | py::array::forcecast> image, int h) {
         // Get buffer info from the NumPy array
         auto buf = image.request();
@@ -197,6 +217,17 @@ public:
         }
     }
 
+    void train_tpl(const std::vector<int>& intuple, int y) {
+        try {
+            _traincount.at(y)++;
+            for (int i = 0; i < _nrams; i++) {
+                _layers.at(y)[i][intuple[i]] += 1.0f;
+            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y arg: ") + e.what());
+        }
+    }
+
     void train(py::array_t<uint8_t> X, int y) {
         try {
             std::vector<int> intuple = _mk_tuple(X);
@@ -210,16 +241,20 @@ public:
     }
 
     void trainforget(const py::array_t<int>& X, int y, float incr, float decr) {
-        std::vector<int> intuple = _mk_tuple(X);
-        _traincount[y]++;
-        for (int i = 0; i < _nrams; ++i) {
-            _layers[y][i][intuple[i]] += incr;
-            for (int j = 0; j < intuple[i]; ++j) {
-                _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
+        try {
+            std::vector<int> intuple = _mk_tuple(X);
+            _traincount[y]++;
+            for (int i = 0; i < _nrams; ++i) {
+                _layers[y][i][intuple[i]] += incr;
+                for (int j = 0; j < intuple[i]; ++j) {
+                    _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
+                }
+                for (int j = intuple[i] + 1; j < _nloc; ++j) {
+                    _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
+                }
             }
-            for (int j = intuple[i] + 1; j < _nloc; ++j) {
-                _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
-            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y arg: ") + e.what());
         }
     }
 
@@ -258,6 +293,12 @@ public:
                                 [](const auto& a, const auto& b) { return a.second < b.second; })->first;
     }
 
+    int test_tpl(const std::vector<int>& intuple, float threshold = 0.0) {
+        auto responses = response_tpl(intuple, threshold=threshold);
+        return std::max_element(responses.begin(), responses.end(),
+                                [](const auto& a, const auto& b) { return a.second < b.second; })->first;
+    }
+
     py::array_t<float> getMI(int y) {
         std::vector<float> result(_retina_size, 0);
         int offset = 0;
@@ -288,6 +329,7 @@ public:
 
     int getNRams() { return _nrams; }
     std::vector<int> getClasses() const { return _classes;}
+    std::vector<int> getMapping() const { return _mapping;}
     int getNBits() const { return _nobits;}
     int getSize() const { return _retina_size;}
     const std::unordered_map<int, int> getTcounts() const { return _traincount;}
@@ -298,18 +340,22 @@ PYBIND11_MODULE(wisard, m) {
     py::class_<WiSARD>(m, "WiSARD")
         .def(py::init<int, int, std::vector<int>, int>(), py::arg("size"), py::arg("n_bits") = 16, py::arg("classes"), py::arg("map") = -1)
         .def("_mk_tuple", &WiSARD::_mk_tuple, "Make-tuple function", py::arg("X"))
+        .def("_mk_tuple_float", &WiSARD::_mk_tuple_float, "Make-tuple function for floats", py::arg("X"), py::arg("ntics"), py::arg("offsets"),py::arg("ranges"))
         .def("_mk_tuple_img", &WiSARD::_mk_tuple_img, "Make-tuple function for image", py::arg("image"), py::arg("h"))
         .def("_mk_tuple_img_multi", &WiSARD::_mk_tuple_img_multi, "Make-tuple function for image", py::arg("image"), py::arg("h"), py::arg("dx") = 1, py::arg("dy") = 1, py::arg("res") = 1)
         .def("reinit", &WiSARD::reinit, "Initialization function")
         .def("train", &WiSARD::train, "Training function", py::arg("X"), py::arg("y"))
+        .def("train_tpl", &WiSARD::train_tpl, "Training function with tuple input", py::arg("X"), py::arg("y"))
         .def("trainforget", &WiSARD::trainforget, "Training/forgetting function", py::arg("X"), py::arg("y"), py::arg("incr"), py::arg("decr"))
-        .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
+        .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function with tuple input", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("response", &WiSARD::response, "Probability prediction function", py::arg("X"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("test", &WiSARD::test, "Classification function", py::arg("X"), py::arg("threshold")=0.0)
+        .def("test_tpl", &WiSARD::test_tpl, "Classification function with tuple input", py::arg("X"), py::arg("threshold")=0.0)
         .def("getMI", &WiSARD::getMI, "Mental Image getter function", py::arg("y"))
         .def("getNRams", &WiSARD::getNRams, "Number of Rams getter function")
         .def("getClasses", &WiSARD::getClasses, "Class list getter function")
+        .def("getMapping", &WiSARD::getMapping, "Class mapping getter function")
         .def("getNBits", &WiSARD::getNBits, "Number of bits getter function")
         .def("getSize", &WiSARD::getSize, "Retina size getter function")
         .def("getTcounts", &WiSARD::getTcounts, "Training count getter function");
-}
+    }
