@@ -59,7 +59,6 @@ if args.cvfold is None:
 	print(f"Train/Test split ({args.testsize / 100.0}) ...")
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = args.testsize / 100.0, random_state=0)
 	y_pred = clf.fit(X_train, y_train).predict(X_test)
-	print(clf.getMapping())
 	targets = y_test
 else:
 	print(f"{args.cvfold}-fold Cross Validation...")

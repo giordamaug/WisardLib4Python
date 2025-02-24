@@ -34,21 +34,21 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         self._model = None
             
     def fit(self, X, y):
-        self._retina_size = self._notics * len(X[0])   # set retin size (# feature x # of tics)
+        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._nrams = int(self._retina_size/self._nobits) if self._retina_size % self._nobits == 0 else int(self._retina_size/self._nobits + 1)
-        self._model = wisard.WiSARD(self._retina_size, self._nobits, [0], map=self._seed)
+        self._model = wisard.WiSARDreg(self._retina_size, self._nobits, map=self._seed)
         self._ranges = X.max(axis=0)-X.min(axis=0)
         self._offsets = X.min(axis=0)
         self._ranges[self._ranges == 0] = 1
         if self._debug: 
             timing_init()
-            delta = 0                                   # inizialize error
+            delta = 0                                   # initialize error
         for i,sample in enumerate(X):
             if self._debug:  print("Target %d"%y[i], end='')
             intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
-            self._model.train_tpl_val(intuple, 0, y[i])        
+            self._model.train_tpl_val(intuple, y[i])        
             if self._debug:             
-                res = self._model.response_tpl_val(intuple)[0]
+                res = self._model.response_tpl_val(intuple)
                 delta += abs(y[i] - res)
                 timing_update(i,y[i]==res,title='train ',size=len(X),error=delta/float(i+1))
         if self._debug: print()
@@ -59,7 +59,7 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         y_pred = np.array([])
         for i,sample in enumerate(X):
             intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
-            y_pred = np.append(y_pred,[self._model.response_tpl_val(intuple)[0]])
+            y_pred = np.append(y_pred,[self._model.response_tpl_val(intuple)])
             if self._debug: 
                 timing_update(i,True,title='test  ',clr=color.GREEN,size=len(X))
         if self._debug: print()
@@ -75,7 +75,7 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
     def printRams(self):
         rep = ""
         for j in range(self._nrams):
-            ep += f'{self._wiznet[cl][j]}'
+            ep += f'{self._model._rams[j]}'
         return rep
 
     def get_params(self, deep=True):
@@ -99,6 +99,9 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
 
     def getClasses(self):
         return self._model.getClasses()
+    
+    def getRams(self):
+        return self._model.getRams()
 
 
 class WiSARDClassifier(BaseEstimator, ClassifierMixin):
@@ -137,7 +140,7 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         #self._conf_def = confidence_bleaching
         
     def fit(self, X, y):
-        self._retina_size = self._notics * len(X[0])   # set retins size (# feature x # of tics)
+        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._classes, y = np.unique(y, return_inverse=True)
         self._nclasses = len(self._classes)
         self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed) 
@@ -146,7 +149,7 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         self._ranges[self._ranges == 0] = 1
         if self._debug: 
             timing_init()
-            delta = 0                                   # inizialize error
+            delta = 0                                   # initialize error
         for i,sample in enumerate(X):
             if self._debug:  print("Label %d"%y[i], end='')
             intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
@@ -175,12 +178,12 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         ''' Printing function'''
         return "WiSARDClassifier(n_tics: %d, n_bits:, %d)\n"%(self._notics, self._nobits)
 
-    def printWiznet(self):
+    def printRams(self):
         rep = ""
         for cl in range(self._nclasses):
             rep += f'[{cl} '
             for j in range(self._nrams):
-                rep += f'{self._wiznet[cl][j]}'
+                rep += f'{self._model._layers.at(cl)[j]}'
             rep += '\n'
         return rep
 

@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <random>
 #include <vector>
-#include "ram.h"
 
 namespace py = pybind11;
 
@@ -18,8 +17,7 @@ class WiSARDreg {
         int _nobits, _retina_size, _nrams, _nloc;
         std::vector<int> _mapping;
         std::vector<int> _revmapping;
-        //std::vector<std::vector<std::pair<float,float>>> _rams;
-        std::vector<Ram> _rams;
+        std::vector<std::vector<std::pair<float,float>>> _rams;
         std::vector<float> _mi;
         float _maxvalue;
         int _traincount;    
@@ -58,8 +56,7 @@ class WiSARDreg {
             _mi = std::vector<float>(_retina_size, 0.0);
             _maxvalue = 0;
             _traincount = 0;
-            //_rams = std::vector<std::vector<std::pair<float,float>>>(_nrams, std::vector<std::pair<float,float>>(_nloc, {0.0, 0.0}));
-            _rams = std::vector<Ram>(_nrams);
+            _rams = std::vector<std::vector<std::pair<float,float>>>(_nrams, std::vector<std::pair<float,float>>(_nloc, {0.0, 0.0}));
         }
                         
         std::vector<int> _mk_tuple_float(py::array_t<float> X, int ntics, py::array_t<float> offsets, py::array_t<float> ranges) {
@@ -86,8 +83,7 @@ class WiSARDreg {
             try {
                 _traincount++;
                 for (int i = 0; i < _nrams; i++) {
-                    //_rams[i][intuple[i]] = { _rams[i][intuple[i]].first + 1.0, _rams[i][intuple[i]].second + val } ;
-                    _rams[i].updEntry(intuple[i], val);
+                    _rams[i][intuple[i]] = { _rams[i][intuple[i]].first + 1.0, _rams[i][intuple[i]].second + val } ;
                 }
             } catch (const std::exception &e) {
                 throw py::value_error(std::string("Wrong val arg: ") + e.what());
@@ -98,10 +94,8 @@ class WiSARDreg {
             float count = 0.0;
             float acc_value = 0.0;
             for (int i = 0; i < _nrams; i++) {
-                //count += _rams[i][intuple[i]].first ;
-                //acc_value += _rams[i][intuple[i]].second;
-                count += _rams[i].getEntry(intuple[i]).first ;
-                acc_value += _rams[i].getEntry(intuple[i]).second;
+                count += _rams[i][intuple[i]].first ;
+                acc_value += _rams[i][intuple[i]].second;
             }
             if (count > 0)
                 return acc_value / count;
@@ -115,16 +109,13 @@ class WiSARDreg {
     
             try {
                 for (int neuron = 0; neuron < _nrams; ++neuron) {
-                    //const auto& ram = _rams.at(neuron);
+                    const auto& ram = _rams.at(neuron);
                     for (int address = 0; address < _nloc; ++address) {
-                        auto entry = _rams[neuron].getEntry(address);
-                        double value = entry.first;
-                        if (value > 0) {
+                        if (ram[address].first > 0) {
                             for (int b = 0; b < _nobits; ++b) {
                                 if ((address >> (_nobits - 1 - b)) & 1) {
                                     int index = _mapping.at(offset + b);
-                                    //result.at(index) += ram[address].first;
-                                    result.at(index) += value;
+                                    result.at(index) += ram[address].first;
                                     if (_maxvalue < result.at(index)) {
                                         _maxvalue = result.at(index);
                                     }
@@ -145,7 +136,7 @@ class WiSARDreg {
         int getNBits() const { return _nobits;}
         int getSize() const { return _retina_size;}
         int getTcount() const { return _traincount;}
-        std::vector<Ram> getRams() const { return _rams;}
+        std::vector<std::vector<std::pair<float,float>>> getRams() const { return _rams;}
     };
 
 class WiSARD {
@@ -153,7 +144,7 @@ private:
     int _nobits, _retina_size, _nrams, _nloc;
     std::vector<int> _mapping;
     std::vector<int> _revmapping;
-    std::unordered_map<int, std::vector<WRam> > _layers;
+    std::unordered_map<int, std::vector<std::vector<float>>> _layers;
 
     std::unordered_map<int, std::vector<float>> _mi;
     std::unordered_map<int, float> _maxvalue;
@@ -196,7 +187,7 @@ public:
             _mi[c] = std::vector<float>(_retina_size, 0.0);
             _maxvalue[c] = 0;
             _traincount[c] = 0;
-            _layers[c] = std::vector<WRam>(_nrams);
+            _layers[c] = std::vector<std::vector<float>>(_nrams, std::vector<float>(_nloc, 0));
         }
     }
 
@@ -350,7 +341,18 @@ public:
             std::fill(_mi[c].begin(), _mi[c].end(), 0);
             _maxvalue[c] = 0;
             _traincount[c] = 0;
-            _layers[c] = std::vector<WRam>(_nrams);
+            std::fill(_layers[c].begin(), _layers[c].end(), std::vector<float>(_nloc, 0));
+        }
+    }
+
+    void train_tpl_val(const std::vector<int>& intuple, int y, float val) {
+        try {
+            _traincount.at(y)++;
+            for (int i = 0; i < _nrams; i++) {
+                _layers.at(y)[i][intuple[i]] += val;
+            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y or val args: ") + e.what());
         }
     }
 
@@ -358,7 +360,7 @@ public:
         try {
             _traincount.at(y)++;
             for (int i = 0; i < _nrams; i++) {
-                _layers.at(y)[i].updEntry(intuple[i]);
+                _layers.at(y)[i][intuple[i]] += 1.0f;
             }
         } catch (const std::exception &e) {
             throw py::value_error(std::string("Wrong y arg: ") + e.what());
@@ -370,11 +372,43 @@ public:
             std::vector<int> intuple = _mk_tuple(X);
             _traincount.at(y)++;
             for (int i = 0; i < _nrams; i++) {
-                _layers.at(y)[i].updEntry(intuple[i]);
+                _layers.at(y)[i][intuple[i]] += 1.0f;
             }
         } catch (const std::exception &e) {
             throw py::value_error(std::string("Wrong y arg: ") + e.what());
         }
+    }
+
+    void trainforget(const py::array_t<int>& X, int y, float incr, float decr) {
+        try {
+            std::vector<int> intuple = _mk_tuple(X);
+            _traincount[y]++;
+            for (int i = 0; i < _nrams; ++i) {
+                _layers[y][i][intuple[i]] += incr;
+                for (int j = 0; j < intuple[i]; ++j) {
+                    _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
+                }
+                for (int j = intuple[i] + 1; j < _nloc; ++j) {
+                    _layers[y][i][j] = std::max(0.0f, _layers[y][i][j] - decr);
+                }
+            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y arg: ") + e.what());
+        }
+    }
+
+    std::unordered_map<int, float> response_tpl_val(const std::vector<int>& intuple) {
+        std::unordered_map<int, float> results;
+
+        for (auto& layer : _layers) {
+            int y = layer.first;
+            float accumulate = 0.0;
+            for (int i = 0; i < _nrams; i++) {
+                accumulate += layer.second[i][intuple[i]] ;
+            }
+            results[y] = static_cast<float>(accumulate) / _nrams;
+        }
+        return results;
     }
 
     std::unordered_map<int, float> response_tpl(const std::vector<int>& intuple, float threshold = 0.0, bool percentage = true) {
@@ -384,7 +418,7 @@ public:
             int y = layer.first;
             int count = 0;
             for (int i = 0; i < _nrams; i++) {
-                if (layer.second[i].getEntry(intuple[i]) > threshold) count++;
+                if (layer.second[i][intuple[i]] > threshold) count++;
             }
             results[y] = static_cast<float>(count) / _nrams;
         }
@@ -399,7 +433,7 @@ public:
             int y = layer.first;
             int count = 0;
             for (int i = 0; i < _nrams; i++) {
-                if (layer.second[i].getEntry(intuple[i]) > threshold) count++;
+                if (layer.second[i][intuple[i]] > threshold) count++;
             }
             results[y] = static_cast<float>(count) / _nrams;
         }
@@ -424,13 +458,13 @@ public:
 
         try {
             for (int neuron = 0; neuron < _nrams; ++neuron) {
+                const auto& ram = _layers.at(y).at(neuron);
                 for (int address = 0; address < _nloc; ++address) {
-                    double value = _layers.at(y).at(neuron).getEntry(address);
-                    if (value > 0) {
+                    if (ram[address] > 0) {
                         for (int b = 0; b < _nobits; ++b) {
                             if ((address >> (_nobits - 1 - b)) & 1) {
                                 int index = _mapping.at(offset + b);
-                                result.at(index) += value;
+                                result.at(index) += ram[address];
                                 if (_maxvalue.at(y) < result.at(index)) {
                                     _maxvalue.at(y) = result.at(index);
                                 }
@@ -465,6 +499,9 @@ PYBIND11_MODULE(wisard, m) {
         .def("reinit", &WiSARD::reinit, "Initialization function")
         .def("train", &WiSARD::train, "Training function", py::arg("X"), py::arg("y"))
         .def("train_tpl", &WiSARD::train_tpl, "Training function with tuple input", py::arg("X"), py::arg("y"))
+        .def("train_tpl_val", &WiSARD::train_tpl_val, "Training function with tuple input and value (for regression)", py::arg("X"), py::arg("y"), py::arg("val"))
+        .def("trainforget", &WiSARD::trainforget, "Training/forgetting function", py::arg("X"), py::arg("y"), py::arg("incr"), py::arg("decr"))
+        .def("response_tpl_val", &WiSARD::response_tpl_val, "Probability prediction function with tuple input (for regression)", py::arg("intuple"))
         .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function with tuple input", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("response", &WiSARD::response, "Probability prediction function", py::arg("X"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("test", &WiSARD::test, "Classification function", py::arg("X"), py::arg("threshold")=0.0)
@@ -488,9 +525,4 @@ PYBIND11_MODULE(wisard, m) {
         .def("getSize", &WiSARDreg::getSize, "Retina size getter function")
         .def("getTcount", &WiSARDreg::getTcount, "Training count getter function")
         .def("getRams", &WiSARDreg::getRams, "RAM getter function");
-    py::class_<Ram>(m, "Ram")
-        .def(py::init<>())
-        .def("print", &Ram::print)
-        .def("getEntry", &Ram::getEntry)
-        .def("updEntry", &Ram::updEntry);
    }
