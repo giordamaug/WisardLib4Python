@@ -24,7 +24,7 @@ This will create the library implemmenting the `wisard` python module to bind in
 
 **Please be sure that the compiler has the same version of the one used to build Python.**
 
-## Test
+## Library testing
 
 ```
 $ python test.py
@@ -33,15 +33,23 @@ $ python test.py
 
 ## Notebooks
 
+### pattern recognition
 To run the ``test_digits.py`` example notebook you need the following python packages:
 
 + sklearn
 + PIL
 
-
-To run the ``test_folower.py`` example notebook you need the following python packages:
+### image recognition for object following
+To run the ``test_follower.py`` example notebook you need the following python packages:
 
 + opencv
 + opencv_jupyter_ui
 
-Both notebooks run in Google Colab by launching them with the button on top of the file.
+### machine learning clssifier and regressor
+To run the ``test_classifier.py`` or ``test_regressor.py`` example notebooks you need the following python packages:
+
++ pandas
++ sklearn
++ matplotlib
+
+All notebooks run in Google Colab by launching them with the button on top of the file.
