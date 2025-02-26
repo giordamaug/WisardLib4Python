@@ -65,6 +65,14 @@ void WRam::updEntry(int key) {
     }
 }
 
+// Update entry, incrementing the first element of the pair by 1
+// and adding the value to the second element, or inserting a new entry
+void WRam::decEntry() {
+    for (auto &kv : wentry) {
+        kv.second -= 1.0;
+    } 
+}
+
 int main() {
     Ram ram;
 

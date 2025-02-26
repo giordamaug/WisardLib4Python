@@ -365,6 +365,17 @@ public:
         }
     }
 
+    void untrain(int y) {
+        try {
+            _traincount.at(y)--;
+            for (int i = 0; i < _nrams; i++) {
+                _layers.at(y)[i].decEntry();
+            }
+        } catch (const std::exception &e) {
+            throw py::value_error(std::string("Wrong y arg: ") + e.what());
+        }
+    }
+
     void train(py::array_t<uint8_t> X, int y) {
         try {
             std::vector<int> intuple = _mk_tuple(X);
@@ -464,6 +475,7 @@ PYBIND11_MODULE(wisard, m) {
         .def("_mk_tuple_img_multi", &WiSARD::_mk_tuple_img_multi, "Make-tuple function for image", py::arg("image"), py::arg("h"), py::arg("dx") = 1, py::arg("dy") = 1, py::arg("res") = 1)
         .def("reinit", &WiSARD::reinit, "Initialization function")
         .def("train", &WiSARD::train, "Training function", py::arg("X"), py::arg("y"))
+        .def("untrain", &WiSARD::untrain, "Untrain all entries in a ram", py::arg("y"))
         .def("train_tpl", &WiSARD::train_tpl, "Training function with tuple input", py::arg("X"), py::arg("y"))
         .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function with tuple input", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("response", &WiSARD::response, "Probability prediction function", py::arg("X"), py::arg("threshold")=0.0, py::arg("percentage")=true)

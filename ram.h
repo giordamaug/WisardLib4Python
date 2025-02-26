@@ -36,6 +36,9 @@ class WRam {
     
         // Method to update entry, increment first element and add value to second element
         void updEntry(int key);
+
+        // Method to decrease all entries,
+        void decEntry();
     
     private:
         // Public data member to store the entries
