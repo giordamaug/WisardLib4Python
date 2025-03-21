@@ -15,12 +15,7 @@ In the WiSARD model, <i>n</i>-tuples selected from the input binary vector are r
 
 More information and details about the WiSARD neural network model can be found in Aleksander and Morton's book [Introduction to neural computing](https://books.google.co.uk/books/about/An_introduction_to_neural_computing.html?id=H4dQAAAAMAAJ&redir_esc=y&hl=it).
 
-The WiSARD4WEKA package implements a multi-class classification method based on the WiSARD weightless neural model
-for the Weka machine learning toolkit. A data-preprocessing filter allows to exploit WiSARD neural model 
-training/classification capabilities on multi-attribute numeric data making WiSARD overcome the restriction to
-binary pattern recognition.
-
-For more information on the WiSARD classifier implemented in the WiSARD4WEKA package, see:
+For more information on the WiSARD capabilities, see:
 
 > Massimo De Gregorio and Maurizio Giordano (2018). 
 > <i>An experimental evaluation of weightless neural networks for 
