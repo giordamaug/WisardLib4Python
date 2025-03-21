@@ -3,8 +3,9 @@
 
 # Description
 
-WiSARD was originally conceived as a pattern recognition device mainly focusing on image processing domain.
-With ad hoc data transformation, WiSARD can also be used successfully as multiclass classifier in machine learning domain.
+WiSARD stands for "Wilkie, Stonham, Aleksander Recognition Device". 
+It is a weightless neural network model to recognize binary patterns.
+
 
 The WiSARD is a RAM-based neuron network working as an <i>n</i>-tuple classifier.
 A WiSARD is formed by as many discriminators as the number of classes it has to discriminate between. 
@@ -13,7 +14,14 @@ earn the occurrences of <i>n</i>-tuples extracted from the input binary vector (
 
 In the WiSARD model, <i>n</i>-tuples selected from the input binary vector are regarded as the “features” of the input pattern to be recognised. It has been demonstrated in literature [14] that the randomness of feature extraction makes WiSARD more sensitive to detect global features than an ordered map which makes a single layer system sensitive to detect local features.
 
-More information and details about the WiSARD neural network model can be found in Aleksander and Morton's book [Introduction to neural computing](https://books.google.co.uk/books/about/An_introduction_to_neural_computing.html?id=H4dQAAAAMAAJ&redir_esc=y&hl=it).
+WiSARD was originally conceived as a pattern recognition device mainly focusing on image processing domain.
+With ad hoc data transformation, WiSARD can also be used successfully as multiclass classifier in machine learning domain.
+
+More information and details about the WiSARD neural network model can be found in:
+
+- [Introduction to neural computing](https://books.google.co.uk/books/about/An_introduction_to_neural_computing.html?id=H4dQAAAAMAAJ&redir_esc=y&hl=it)
+- [A brief introduction to Weightless Neural Systems](https://www.elen.ucl.ac.be/Proceedings/esann/esannpdf/es2009-6.pdf)
+
 
 For more information on the WiSARD capabilities, see:
 
