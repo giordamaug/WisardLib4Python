@@ -402,14 +402,26 @@ public:
         return results;
     }
 
-    std::unordered_map<int, float> embed_tpl(const std::vector<int>& intuple) {
+    std::unordered_map<int, std::vector<float>> embed_tpl(const std::vector<int>& intuple) {
         std::unordered_map<int, std::vector<float>> embedding;
 
         for (auto& layer : _layers) {
             int y = layer.first;
-            int count = 0;
             for (int i = 0; i < _nrams; i++) {
-                embedding[y][i] = layer.second[i].getEntry(intuple[i]) / _traincount.at(y);
+                embedding[y].push_back(layer.second[i].getEntry(intuple[i]) / _traincount.at(y));
+            }
+        }
+        return embedding;
+    }
+
+    std::unordered_map<int, std::vector<float>> embed(py::array_t<uint8_t> X) {
+        std::vector<int> intuple = _mk_tuple(X);
+        std::unordered_map<int, std::vector<float>> embedding;
+
+        for (auto& layer : _layers) {
+            int y = layer.first;
+            for (int i = 0; i < _nrams; i++) {
+                embedding[y].push_back(layer.second[i].getEntry(intuple[i]) / _traincount.at(y));
             }
         }
         return embedding;
@@ -490,6 +502,8 @@ PYBIND11_MODULE(wisard, m) {
         .def("train", &WiSARD::train, "Training function", py::arg("X"), py::arg("y"))
         .def("untrain", &WiSARD::untrain, "Untrain all entries in a ram", py::arg("y"))
         .def("train_tpl", &WiSARD::train_tpl, "Training function with tuple input", py::arg("X"), py::arg("y"))
+        .def("embed_tpl", &WiSARD::embed_tpl, "Embedding function with tuple input", py::arg("intuple"))
+        .def("embed", &WiSARD::embed, "Embedding function", py::arg("X"))
         .def("response_tpl", &WiSARD::response_tpl, "Probability prediction function with tuple input", py::arg("intuple"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("response", &WiSARD::response, "Probability prediction function", py::arg("X"), py::arg("threshold")=0.0, py::arg("percentage")=true)
         .def("test", &WiSARD::test, "Classification function", py::arg("X"), py::arg("threshold")=0.0)

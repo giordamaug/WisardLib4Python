@@ -139,6 +139,23 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         #self._b_def = default_bleaching
         #self._conf_def = confidence_bleaching
         
+    def fit_uns(self, X):
+        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
+        self._model = wisard.WiSARD(self._retina_size, self._nobits, np.array([0]), map=self._seed) 
+        self._ranges = X.max(axis=0)-X.min(axis=0)
+        self._offsets = X.min(axis=0)
+        self._ranges[self._ranges == 0] = 1
+        if self._debug: 
+            timing_init()
+            delta = 0                                   # initialize error
+        for i,sample in enumerate(X):
+            intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
+            self._model.train_tpl(intuple, 0)        
+            if self._debug: 
+                timing_update(i,True,title='train ',size=len(X),error=0.0)
+        if self._debug: print()
+        return self
+
     def fit(self, X, y):
         self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._classes, y = np.unique(y, return_inverse=True)
@@ -180,6 +197,16 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
             if self._debug: timing_update(i,True,title='resp  ',clr=color.GREEN,size=len(X))
         if self._debug: print()
         return responses
+
+    def embedding(self,X):
+        if self._debug: timing_init()
+        embedding = np.array([])
+        for i,sample in enumerate(X):
+            intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
+            embedding = np.append(embedding,[self._model.embed_tpl(intuple)])
+            if self._debug: timing_update(i,True,title='embed  ',clr=color.GREEN,size=len(X))
+        if self._debug: print()
+        return embedding
 
     def __repr__(self): 
         return "WiSARDClassifier(n_tics: %d, n_bits:, %d, random_state: %d, n_locs: %r)\n"%(self._notics, self._nobits, self._seed, self._nloc)
