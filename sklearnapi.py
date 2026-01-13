@@ -171,6 +171,16 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         if self._debug: print()
         return y_pred
 
+    def response(self,X):
+        if self._debug: timing_init()
+        responses = np.array([])
+        for i,sample in enumerate(X):
+            intuple = self._model._mk_tuple_float(sample, self._notics, self._offsets, self._ranges)
+            responses = np.append(responses,[self._model.response_tpl(intuple)])
+            if self._debug: timing_update(i,True,title='resp  ',clr=color.GREEN,size=len(X))
+        if self._debug: print()
+        return responses
+
     def __repr__(self): 
         return "WiSARDClassifier(n_tics: %d, n_bits:, %d, random_state: %d, n_locs: %r)\n"%(self._notics, self._nobits, self._seed, self._nloc)
 
