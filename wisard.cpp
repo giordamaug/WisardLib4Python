@@ -402,6 +402,19 @@ public:
         return results;
     }
 
+    std::unordered_map<int, float> embed_tpl(const std::vector<int>& intuple) {
+        std::unordered_map<int, std::vector<float>> embedding;
+
+        for (auto& layer : _layers) {
+            int y = layer.first;
+            int count = 0;
+            for (int i = 0; i < _nrams; i++) {
+                embedding[y][i] = layer.second[i].getEntry(intuple[i]) / _traincount.at(y);
+            }
+        }
+        return embedding;
+    }
+
     std::unordered_map<int, float> response(py::array_t<uint8_t> X, float threshold = 0.0, bool percentage = true) {
         std::vector<int> intuple = _mk_tuple(X);
         std::unordered_map<int, float> results;
