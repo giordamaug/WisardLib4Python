@@ -34,7 +34,7 @@ class WiSARDreg {
             return result;
         }();
     
-        WiSARDreg(int size, int n_bits = 16, int map = -1)
+        WiSARDreg(int size, int n_bits = 16, int map = -1, std::vector<int> mapping = {})
             : _nobits(n_bits), _retina_size(size) {
     
             _nloc = 1 << _nobits;
@@ -50,6 +50,11 @@ class WiSARDreg {
                 std::mt19937 rng(map);  // Initialize random number generator with seed
                 std::shuffle(_mapping.begin(), _mapping.end(), rng);  // Use std::shuffle for reproducibility
             
+                for (int i = 0; i < _retina_size; ++i) {
+                    _revmapping[_mapping[i]] = i;
+                }
+            } else if (map == -1) {    // in this case, take the mapping as input
+                _mapping = mapping;
                 for (int i = 0; i < _retina_size; ++i) {
                     _revmapping[_mapping[i]] = i;
                 }
@@ -171,7 +176,7 @@ public:
         return result;
     }();
 
-    WiSARD(int size, int n_bits = 16, std::vector<int> classes = {0, 1}, int map = -1)
+    WiSARD(int size, int n_bits = 16, std::vector<int> classes = {0, 1}, int map = -1, std::vector<int> mapping = {})
         : _nobits(n_bits), _retina_size(size), _classes(classes) {
 
         _nloc = 1 << _nobits;
@@ -187,6 +192,11 @@ public:
             std::mt19937 rng(map);  // Initialize random number generator with seed
             std::shuffle(_mapping.begin(), _mapping.end(), rng);  // Use std::shuffle for reproducibility
         
+            for (int i = 0; i < _retina_size; ++i) {
+                _revmapping[_mapping[i]] = i;
+            }
+        } else if (map == -1) {    // in this case, take the mapping as input
+            _mapping = mapping;
             for (int i = 0; i < _retina_size; ++i) {
                 _revmapping[_mapping[i]] = i;
             }
@@ -493,7 +503,7 @@ public:
 
 PYBIND11_MODULE(wisard, m) {
     py::class_<WiSARD>(m, "WiSARD")
-        .def(py::init<int, int, std::vector<int>, int>(), py::arg("size"), py::arg("n_bits") = 16, py::arg("classes"), py::arg("map") = -1)
+        .def(py::init<int, int, std::vector<int>, int, std::vector<int>>(), py::arg("size"), py::arg("n_bits") = 16, py::arg("classes"), py::arg("map") = -1, py::arg("mapping"))
         .def("_mk_tuple", &WiSARD::_mk_tuple, "Make-tuple function", py::arg("X"))
         .def("_mk_tuple_float", &WiSARD::_mk_tuple_float, "Make-tuple function for floats", py::arg("X"), py::arg("ntics"), py::arg("offsets"),py::arg("ranges"))
         .def("_mk_tuple_img", &WiSARD::_mk_tuple_img, "Make-tuple function for image", py::arg("image"), py::arg("h"))
@@ -511,18 +521,18 @@ PYBIND11_MODULE(wisard, m) {
         .def("getMI", &WiSARD::getMI, "Mental Image getter function", py::arg("y"))
         .def("getNRams", &WiSARD::getNRams, "Number of Rams getter function")
         .def("getClasses", &WiSARD::getClasses, "Class list getter function")
-        .def("getMapping", &WiSARD::getMapping, "Class mapping getter function")
+        .def("getMapping", &WiSARD::getMapping, "Mapping getter function")
         .def("getNBits", &WiSARD::getNBits, "Number of bits getter function")
         .def("getSize", &WiSARD::getSize, "Retina size getter function")
         .def("getTcounts", &WiSARD::getTcounts, "Training count getter function");
     py::class_<WiSARDreg>(m, "WiSARDreg")
-        .def(py::init<int, int, int>(), py::arg("size"), py::arg("n_bits") = 16, py::arg("map") = -1)
+        .def(py::init<int, int, int, std::vector<int>>(), py::arg("size"), py::arg("n_bits") = 16, py::arg("map") = -1, py::arg("mapping"))
         .def("_mk_tuple_float", &WiSARDreg::_mk_tuple_float, "Make-tuple function for floats", py::arg("X"), py::arg("ntics"), py::arg("offsets"),py::arg("ranges"))
         .def("train_tpl_val", &WiSARDreg::train_tpl_val, "Training function with tuple input and value (for regression)", py::arg("intuple"), py::arg("val"))
         .def("response_tpl_val", &WiSARDreg::response_tpl_val, "Probability prediction function with tuple input (for regression)", py::arg("intuple"))
         .def("getMI", &WiSARDreg::getMI, "Mental Image getter function")
         .def("getNRams", &WiSARDreg::getNRams, "Number of Rams getter function")
-        .def("getMapping", &WiSARDreg::getMapping, "Class mapping getter function")
+        .def("getMapping", &WiSARDreg::getMapping, "Mapping getter function")
         .def("getNBits", &WiSARDreg::getNBits, "Number of bits getter function")
         .def("getSize", &WiSARDreg::getSize, "Retina size getter function")
         .def("getTcount", &WiSARDreg::getTcount, "Training count getter function")
