@@ -121,7 +121,7 @@ def mutate_1d_np(ind, m, n, factor=4):
 
     ind[idx1], ind[idx2] = ind[idx2].copy(), ind[idx1].copy()
 
-    return (ind,)
+    return ind
 
 # =========================
 # Utility
