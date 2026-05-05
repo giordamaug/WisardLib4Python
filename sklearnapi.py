@@ -13,7 +13,9 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
     """WiSARD Regressor """
     
     #def __init__(self,  nobits, size, map=-1, classes=[0,1], dblvl=0):
-    def __init__(self,  n_bits=8, n_tics=256, random_state=0, code='t', debug=False):
+    def __init__(self,  n_features, n_bits=8, n_tics=256, random_state=0, mapping = np.empty(0, dtype=int), code='t', debug=False):
+        if (not isinstance(n_features, int) or n_features<1):
+            raise Exception('number of features must be an integer greater than 1')
         if (not isinstance(n_bits, int) or n_bits<1 or n_bits>64):
             raise Exception('number of bits must be an integer between 1 and 64')
         if (not isinstance(n_tics, int) or n_tics<1):
@@ -22,21 +24,33 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
             raise Exception('debug flag must be a boolean')
         if (not isinstance(code, str)) or (not (code=='g' or code=='t' or code=='c')):
             raise Exception('code must either \"t\" (termometer) or \"g\" (graycode) or \"c\" (cursor)')
-        if (not isinstance(random_state, int)) or random_state<0:
-            raise Exception('random state must be an integer greater than 0')
+        if (not isinstance(random_state, int)):
+            raise Exception('random state must be an integer (-1 for input mapping, <-1 for lieanr mapping))')
         self._nobits = n_bits
         self._notics = n_tics
+        self._nofeatures = n_features
+        self._mapping = mapping
+        self._retina_size = self._notics * self._nofeatures          # set retina size (# feature x # of tics)
         self._code = code
-        self._nrams = 0
+        self._nrams = int(self._retina_size/self._nobits) if self._retina_size % self._nobits == 0 else int(self._retina_size/self._nobits + 1)
         self._seed = random_state
+        if self._seed == -1:
+            if not isinstance(self._mapping, np.ndarray):               # check if mapping is an array
+                raise TypeError("mapping must be a numpy array")
+            if not np.issubdtype(self._mapping.dtype, np.integer):      # check if mapping is an array of integers
+                raise TypeError("mapping must be an integer numpy array")
+            if self._mapping.shape != (self._retina_size,):
+                raise ValueError(f"mapping must have shape ({self._retina_size},)")
+            if np.any(self._mapping < 0) or np.any(self._mapping > self._retina_size-1):
+                raise ValueError(f"mapping values must be in range [0, {self._retina_size-1})")
+            if len(np.unique(self._mapping)) != self._mapping.size:
+                raise ValueError("mapping values must be all different")
         self._debug = debug
         self._nloc = mypowers[self._nobits]
-        self._model = None
+        self._model = wisard.WiSARDreg(self._retina_size, self._nobits, map=self._seed, mapping = self._mapping) 
             
     def fit(self, X, y):
-        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
-        self._nrams = int(self._retina_size/self._nobits) if self._retina_size % self._nobits == 0 else int(self._retina_size/self._nobits + 1)
-        self._model = wisard.WiSARDreg(self._retina_size, self._nobits, map=self._seed)
+        #self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._ranges = X.max(axis=0)-X.min(axis=0)
         self._offsets = X.min(axis=0)
         self._ranges[self._ranges == 0] = 1
@@ -66,11 +80,11 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
         return y_pred
 
     def __repr__(self): 
-        return "WiSARDRegressor(n_tics: %d, n_bits:, %d, n_rams: %d, random_state: %d, n_locs: %r)\n"%(self._notics, self._nobits, self._nrams, self._seed,self._nloc)
+        return "WiSARDRegressor(n_features: %d, n_tics: %d, n_bits:, %d, n_rams: %d, random_state: %d, n_locs: %r)\n"%(self._nofeatures, self._notics, self._nobits, self._nrams, self._seed,self._nloc)
 
     def __str__(self):
         ''' Printing function'''
-        return "WiSARDRegressor(n_tics: %d, n_bits:, %d, n_rams: %d)\n"%(self._notics, self._nobits, self._nrams)
+        return "WiSARDRegressor(n_features: %d, n_tics: %d, n_bits:, %d, n_rams: %d)\n"%(self._nofeatures, self._notics, self._nobits, self._nrams)
 
     def printRams(self):
         rep = ""
@@ -80,7 +94,8 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        return {"n_bits": self._nobits, "n_tics": self._notics , "debug": self._debug, "code" : self._code, "random_state": self._seed
+        return {"n_features": self._nofeatures, "n_bits": self._nobits, "n_tics": self._notics, 
+            "debug": self._debug, "code" : self._code, "random_state": self._seed, "mapping": self._mapping, 
               }
     def getMapping(self):
         return self._model.getMapping()
@@ -107,8 +122,12 @@ class WiSARDRegressor(BaseEstimator, RegressorMixin):
 class WiSARDClassifier(BaseEstimator, ClassifierMixin):
     """WiSARD Regressor """
     
-    def __init__(self,  n_bits=8, n_tics=256, random_state=0, code='t', 
+    def __init__(self,  n_features, n_classes, n_bits=8, n_tics=256, random_state=0, mapping = np.empty(0, dtype=int), code='t', 
             bleaching=True,default_bleaching=1,confidence_bleaching=0.01, debug=False):
+        if (not isinstance(n_features, int) or n_features<1):
+            raise Exception('number of features must be an integer greater than 1')
+        if (not isinstance(n_classes, int) or n_classes<0):
+            raise Exception('number of classes must be an integer greater than 0')
         if (not isinstance(n_bits, int) or n_bits<1 or n_bits>64):
             raise Exception('number of bits must be an integer between 1 and 64')
         if (not isinstance(n_tics, int) or n_tics<1):
@@ -123,25 +142,38 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
             raise Exception('debug flag must be a boolean')
         if (not isinstance(code, str)) or (not (code=='g' or code=='t' or code=='c')):
             raise Exception('code must either \"t\" (termometer) or \"g\" (graycode) or \"c\" (cursor)')
-        if (not isinstance(random_state, int)) or random_state<0:
-            raise Exception('random state must be an integer greater than 0')
+        if (not isinstance(random_state, int)): #or random_state<0:
+            raise Exception('random state must be an integer (-1 for input mapping, <-1 for linear mapping)')
         self._nobits = n_bits
         self._notics = n_tics
+        self._nofeatures = n_features
+        self._mapping = mapping
+        self._retina_size = self._notics * self._nofeatures          # set retina size (# feature x # of tics)
         self._code = code
-        self._nrams = 0
-        self._nclasses = 0
+        self._nrams = int(self._retina_size/self._nobits) if self._retina_size % self._nobits == 0 else int(self._retina_size/self._nobits + 1)
+        self._nclasses = n_classes
+        self._classes = np.arange(self._nclasses)
         self._seed = random_state
+        if self._seed == -1:
+            if not isinstance(self._mapping, np.ndarray):               # check if mapping is an array
+                raise TypeError("mapping must be a numpy array")
+            if not np.issubdtype(self._mapping.dtype, np.integer):      # check if mapping is an array of integers
+                raise TypeError("mapping must be an integer numpy array")
+            if self._mapping.shape != (self._retina_size,):
+                raise ValueError(f"mapping must have shape ({self._retina_size},)")
+            if np.any(self._mapping < 0) or np.any(self._mapping > self._retina_size-1):
+                raise ValueError(f"mapping values must be in range [0, {self._retina_size-1})")
+            if len(np.unique(self._mapping)) != self._mapping.size:
+                raise ValueError("mapping values must be all different")
         self._debug = debug
         self._nloc = mypowers[self._nobits]
-        self._model = None
-        #self._bleaching = bleaching
+        self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed, mapping = self._mapping) 
         #self._test = self.test_bleaching if self._bleaching else self.test
         #self._b_def = default_bleaching
         #self._conf_def = confidence_bleaching
         
     def fit_uns(self, X):
-        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
-        self._model = wisard.WiSARD(self._retina_size, self._nobits, np.array([0]), map=self._seed) 
+        # self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._ranges = X.max(axis=0)-X.min(axis=0)
         self._offsets = X.min(axis=0)
         self._ranges[self._ranges == 0] = 1
@@ -157,10 +189,7 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         return self
 
     def fit(self, X, y):
-        self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
-        self._classes, y = np.unique(y, return_inverse=True)
-        self._nclasses = len(self._classes)
-        self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed) 
+        # self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
         self._ranges = X.max(axis=0)-X.min(axis=0)
         self._offsets = X.min(axis=0)
         self._ranges[self._ranges == 0] = 1
@@ -209,11 +238,11 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         return embedding
 
     def __repr__(self): 
-        return "WiSARDClassifier(n_tics: %d, n_bits:, %d, random_state: %d, n_locs: %r)\n"%(self._notics, self._nobits, self._seed, self._nloc)
+        return "WiSARDClassifier(n_features: %d, n_tics: %d, n_bits:, %d, random_state: %d)\n"%(self._nofeatures, self._notics, self._nobits, self._seed)
 
     def __str__(self):
         ''' Printing function'''
-        return "WiSARDClassifier(n_tics: %d, n_bits:, %d)\n"%(self._notics, self._nobits)
+        return "WiSARDClassifier(n_features: %d, n_tics: %d, n_bits:, %d, random_state: %d)\n"%(self._nofeatures, self._notics, self._nobits, self._seed, )
 
     def printRams(self):
         rep = ""
@@ -226,10 +255,13 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        return {"n_bits": self._nobits, "n_tics": self._notics, 
-            "debug": self._debug, "code" : self._code, "random_state": self._seed, 
-            #"bleaching" : self._bleaching, "default_bleaching" : self._b_def  , "confidence_bleaching": self._conf_def
+        return {"n_features": self._nofeatures, "n_classes": self._nclasses, "n_bits": self._nobits, "n_tics": self._notics, 
+            "debug": self._debug, "code" : self._code, "random_state": self._seed, "mapping": self._mapping, 
+            "bleaching" : self._bleaching, "default_bleaching" : self._b_def  , "confidence_bleaching": self._conf_def
               }
+
+    def getNoFeatures(self):
+        return self._nofeatures
 
     def getMapping(self):
         return self._model.getMapping()
