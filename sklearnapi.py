@@ -168,7 +168,7 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
         self._debug = debug
         self._nloc = mypowers[self._nobits]
         self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed, mapping = self._mapping)
-        self._self._bleaching = bleaching
+        self._bleaching = bleaching
         self._b_def = default_bleaching
         self._conf_def = confidence_bleaching
         
