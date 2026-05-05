@@ -50,7 +50,7 @@ print(f'Classification with method= "{args.method}"')
 if args.method == 'LGBM':
 	clf = LGBMClassifier()
 elif args.method == 'WNN':
-	clf = WiSARDClassifier(n_bits=args.nbits, n_tics=args.ntics, random_state=args.seed, code='t', scale=True, debug=args.debug)
+	clf = WiSARDClassifier(n_features=len(X[0]), n_classes=len(classes), n_bits=args.nbits, n_tics=args.ntics, random_state=args.seed, code='t', debug=args.debug)
 elif args.method == 'RF':
     clf = RandomForestClassifier()
 
