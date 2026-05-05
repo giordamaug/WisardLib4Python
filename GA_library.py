@@ -60,7 +60,6 @@ def fix_by_swapping(child1, child2):
 
     return child1, child2
 
-
 def crossover(Mx, My, crossover_row=4):
     Mx = Mx.copy()
     My = My.copy()
@@ -74,6 +73,28 @@ def crossover(Mx, My, crossover_row=4):
 
     return child1, child2
     
+def crossover_1d_np(ind1, ind2, m, n, crossover_row=None):
+    if crossover_row is None:
+        crossover_row = np.random.randint(1, m)
+
+    k = crossover_row * n
+
+    child1 = np.empty_like(ind1)
+    child2 = np.empty_like(ind2)
+
+    child1[:k] = ind1[:k]
+    child1[k:] = ind2[k:]
+
+    child2[:k] = ind2[:k]
+    child2[k:] = ind1[k:]
+
+    fix_by_swapping(child1, child2)
+
+    ind1[:] = child1
+    ind2[:] = child2
+
+    return ind1, ind2
+
 # =========================
 # Mutate operator
 # =========================
@@ -157,6 +178,19 @@ def initialize(mu, m, n, linear=True):
 
     return population
 
+def initialize_1d_np(mu, m, n, linear=True):
+    population = []
+    base = np.arange(m * n)
+
+    if not linear:
+        for _ in range(mu):
+            perm = np.random.permutation(base)
+            population.append(perm)
+    else:
+        for _ in range(mu):
+            population.append(base)
+
+    return population
 
 # =========================
 # Evaluate (DA DEFINIRE)
@@ -184,12 +218,12 @@ def select(population, fitness, mu, maximize=True):
 
 def ea_mu_lambda(mu, lam, tau, theta_r, theta_m, m, n, 
                  X, y, n_bits, n_tics, seed,
-                 crossover_fn, mutate_fn,
+                 crossover_fn, mutate_fn, initialize_fn,
                  patience=20, min_delta=1e-4, maximize=True, 
                  live_plot=True):
 
     # init
-    population = initialize(mu, m, n)
+    population = initialize_fn(mu, m, n)
     fitness = evaluate(population, X, y, n_bits, n_tics, seed)
 
     best_fitness = -np.inf
@@ -282,50 +316,3 @@ def ea_mu_lambda(mu, lam, tau, theta_r, theta_m, m, n,
             break
 
     return population, history
-
-def ea_mu_lambda_old(mu, lam, tau, theta_r, theta_m, m, n, evaluate, 
-                 crossover_fn, mutate_fn):
-
-    # init
-    population = initialize(mu, m, n)
-    fitness = evaluate(population)
-
-    # progress bar esterna (generazioni)
-    for t in tqdm(range(tau), desc="Generations"):
-
-        offspring = []
-
-        # progress bar interna (lambda offspring)
-        for _ in tqdm(range(lam), desc="Offspring", leave=False):
-            choice = random.random()
-
-            if choice < theta_r:
-                # crossover
-                p1, p2 = random_pair(population)
-                c1, c2 = crossover_fn(clone(p1), clone(p2))
-                offspring.append(c1)
-
-            elif choice < theta_r + theta_m:
-                # mutation
-                p = random_individual(population)
-                child = mutate_fn(clone(p))
-                offspring.append(child)
-
-            else:
-                # reproduction
-                p = random_individual(population)
-                offspring.append(clone(p))
-
-        # merge (μ + λ)
-        population = population + offspring
-
-        # evaluate
-        fitness = evaluate(population)
-
-        # select best μ
-        population = select(population, fitness, mu)
-
-        # opzionale: aggiorna fitness coerente
-        fitness = evaluate(population)
-
-    return population
