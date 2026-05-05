@@ -167,10 +167,10 @@ class WiSARDClassifier(BaseEstimator, ClassifierMixin):
                 raise ValueError("mapping values must be all different")
         self._debug = debug
         self._nloc = mypowers[self._nobits]
-        self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed, mapping = self._mapping) 
-        #self._test = self.test_bleaching if self._bleaching else self.test
-        #self._b_def = default_bleaching
-        #self._conf_def = confidence_bleaching
+        self._model = wisard.WiSARD(self._retina_size, self._nobits, self._classes, map=self._seed, mapping = self._mapping)
+        self._self._bleaching = bleaching
+        self._b_def = default_bleaching
+        self._conf_def = confidence_bleaching
         
     def fit_uns(self, X):
         # self._retina_size = self._notics * len(X[0])   # set retina size (# feature x # of tics)
