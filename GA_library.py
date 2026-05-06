@@ -35,26 +35,20 @@ def evaluate_individual_cv(ind, X, y, clf_params):
 # Crossover operator
 # =========================
 
-def find_duplicates(matrix):
-    flat = matrix.flatten()
-    counts = Counter(flat)
-    
-    # duplicati: includiamo tante copie quante sono in eccesso
+def find_duplicates(vec):
+    counts = Counter(vec)
+
     duplicates = []
     for val, c in counts.items():
         if c > 1:
             duplicates.extend([val] * (c - 1))
-    
     return sorted(duplicates)
 
-def replace_first_occurrence(matrix, value, new_value):
-    """Sostituisce la prima occorrenza trovata (scansione row-wise)"""
-    for i in range(matrix.shape[0]):
-        for j in range(matrix.shape[1]):
-            if matrix[i, j] == value:
-                matrix[i, j] = new_value
-                return
-            
+def replace_first_occurrence(vec, value, new_value):
+    idx = np.flatnonzero(vec == value)
+    if len(idx) > 0:
+        vec[idx[0]] = new_value
+
 def fix_by_swapping(child1, child2):
     d1 = find_duplicates(child1)
     d2 = find_duplicates(child2)
@@ -72,49 +66,6 @@ def fix_by_swapping(child1, child2):
 def crossover(ind1, ind2, m, n, crossover_row=None):
     if crossover_row is None:
         crossover_row = np.random.randint(1, m)
-    ind1 = ind1.copy()
-    ind2 = ind2.copy()
-
-    # Step 1: crossover
-    child1 = np.vstack((ind1[:crossover_row], ind2[crossover_row:]))
-    child2 = np.vstack((ind2[:crossover_row], ind1[crossover_row:]))
-
-    # Step 2: fixing con swap duplicati
-    child1, child2 = fix_by_swapping(child1, child2)
-
-    return child1, child2
-    
-def find_duplicates_1d_np(vec):
-    counts = Counter(vec)
-
-    duplicates = []
-    for val, c in counts.items():
-        if c > 1:
-            duplicates.extend([val] * (c - 1))
-    return sorted(duplicates)
-
-def replace_first_occurrence_1d_np(vec, value, new_value):
-    idx = np.flatnonzero(vec == value)
-    if len(idx) > 0:
-        vec[idx[0]] = new_value
-
-def fix_by_swapping_1d_np(child1, child2):
-    d1 = find_duplicates_1d_np(child1)
-    d2 = find_duplicates_1d_np(child2)
-
-    if len(d1) != len(d2):
-        raise ValueError("Le liste duplicati devono avere stessa lunghezza")
-
-    # swap posizione-per-posizione
-    for v1, v2 in zip(d1, d2):
-        replace_first_occurrence_1d_np(child1, v1, v2)
-        replace_first_occurrence_1d_np(child2, v2, v1)
-
-    return child1, child2
-
-def crossover_1d_np(ind1, ind2, m, n, crossover_row=None):
-    if crossover_row is None:
-        crossover_row = np.random.randint(1, m)
 
     k = crossover_row * n
 
@@ -127,7 +78,7 @@ def crossover_1d_np(ind1, ind2, m, n, crossover_row=None):
     child2[:k] = ind2[:k]
     child2[k:] = ind1[k:]
 
-    fix_by_swapping_1d_np(child1, child2)
+    fix_by_swapping(child1, child2)
 
     ind1[:] = child1
     ind2[:] = child2
@@ -139,28 +90,6 @@ def crossover_1d_np(ind1, ind2, m, n, crossover_row=None):
 # =========================
 
 def mutate(ind, m, n, factor=4):
-    ind = ind.copy()
-
-    # numero di coppie
-    n_pairs = m // factor
-
-    # seleziona 2*n_pairs righe distinte
-    selected_rows = random.sample(range(m), 2 * n_pairs)
-
-    # 🔥 shuffle per rendere le coppie RANDOMICHE
-    random.shuffle(selected_rows)
-
-    # crea coppie NON sovrapposte
-    pairs = [(selected_rows[2*i], selected_rows[2*i+1]) for i in range(n_pairs)]
-
-    # swap ciclico sulle colonne
-    for i, (r1, r2) in enumerate(pairs):
-        col = i % n
-        ind[r1, col], ind[r2, col] = ind[r2, col], ind[r1, col]
-
-    return ind
-
-def mutate_1d_np(ind, m, n, factor=4):
     n_pairs = m // factor
 
     rows = np.random.choice(m, size=2*n_pairs, replace=False)
@@ -198,20 +127,6 @@ def random_individual(pop):
 # =========================
 
 def initialize(mu, m, n, linear=True):
-    population = []
-    base = np.arange(m * n)
-
-    if not linear:
-        for _ in range(mu):
-            perm = np.random.permutation(base)
-            population.append(perm.reshape(m, n))
-    else:
-        for _ in range(mu):
-            population.append(base.reshape(m, n))
-
-    return population
-
-def initialize_1d_np(mu, m, n, linear=True):
     population = []
     base = np.arange(m * n)
 
@@ -368,15 +283,3 @@ def ea_mu_lambda(mu, lam, tau, theta_r, theta_m, m, n,
             break
 
     return population, history
-
-## OLD stuff
-def evaluate_old(population, X, y, n_bits, n_tics, seed):
-    return Parallel(n_jobs=multiprocessing.cpu_count())(
-        delayed(evaluate_individual_cv_old)(ind, X, y, n_bits, n_tics, seed) for ind in population
-    )
-
-def evaluate_individual_cv_old(mapping, X, y, n_bits, n_tics, seed):
-    clf = WiSARDClassifier(len(X[0]), n_bits=n_bits, n_tics=n_tics, n_classes=len(np.unique(y)), random_state=-1, # explicit input mapping
-                           mapping=mapping.ravel(), bleaching=False, code='t', debug=False)
-    y_pred = cross_val_predict(clf, X, y, cv=5)
-    return metrics.accuracy_score(y, y_pred)
