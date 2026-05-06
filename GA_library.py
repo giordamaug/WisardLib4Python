@@ -343,22 +343,23 @@ def ea_mu_lambda(mu, lam, tau, theta_r, theta_m, m, n,
             ax1.set_title(f"Fitness Evolution (gen {t})")
             ax1.set_xlabel("Generation")
             ax1.set_ylabel("Fitness")
-            ax1.legend()
+            ax1.legend(loc="lower left")
             ax1.grid(True)
 
             # ---- OPERATORI ----
-            width = 0.25
+            cross = np.array(history["crossover"])
+            mut = np.array(history["mutation"])
+            clo = np.array(history["clone"])
 
-            ax2.bar(x - width, history["crossover"], width=width, label="crossover", alpha=0.6)
-            ax2.bar(x, history["mutation"], width=width, label="mutation", alpha=0.6)
-            ax2.bar(x + width, history["clone"], width=width, label="clone", alpha=0.6)
+            ax2.bar(x, cross, label="crossover")
+            ax2.bar(x, mut, bottom=cross, label="mutation")
+            ax2.bar(x, clo, bottom=cross + mut, label="clone")
 
             ax2.set_title("Operator Usage per Generation")
             ax2.set_xlabel("Generation")
             ax2.set_ylabel("Count")
-            ax2.legend()
+            ax2.legend(loc="lower left")
             ax2.grid(True)
-
             display_handle.update(fig)
 
         # stop
